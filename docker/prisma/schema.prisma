@@ -1,0 +1,88 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Rol global del usuario en el sistema
+enum GlobalRole {
+  SUPER_ADMIN    // Acceso total, crea usuarios
+  AREA_ADMIN     // Admin de un área específica
+  EMPLOYEE       // Empleado con acceso limitado
+  VIEWER         // Solo lectura
+}
+
+// Áreas/Departamentos del sistema
+enum AreaCode {
+  DESARROLLO
+  IMPLANTACION
+  SOPORTE
+  GERENCIA
+  RECURSOS_HUMANOS
+}
+
+// Permisos específicos por área
+enum AreaPermission {
+  READ
+  CREATE
+  UPDATE
+  DELETE
+  MANAGE_USERS  // Solo para AREA_ADMIN
+}
+
+model User {
+  id            Int              @id @default(autoincrement())
+  email         String           @unique
+  password      String
+  firstName     String?
+  lastName      String?
+  globalRole    GlobalRole       @default(VIEWER)
+  isActive      Boolean          @default(true)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  
+  // Relación con áreas
+  areaAccess    UserAreaAccess[]
+  
+  // Usuario que lo creó
+  createdBy     User?            @relation("UserCreator", fields: [createdById], references: [id])
+  createdById   Int?
+  createdUsers  User[]           @relation("UserCreator")
+}
+
+model Area {
+  id          Int              @id @default(autoincrement())
+  name        String           @unique
+  code        AreaCode         @unique
+  description String?
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  
+  users       UserAreaAccess[]
+}
+
+model UserAreaAccess {
+  id          Int              @id @default(autoincrement())
+  userId      Int
+  areaId      Int
+  permissions AreaPermission[]
+  isAdmin     Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  area        Area             @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, areaId])
+  @@index([userId])
+  @@index([areaId])
+}
